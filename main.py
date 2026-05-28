@@ -52,24 +52,36 @@ class KuroPlugin(Star):
 
     @kjq.command("sign")
     async def kjq_sign(self, event: AstrMessageEvent):
-        user_id = event.get_sender_id()
-        token = self.kuro_config.get_token(user_id)
-        if not token:
-            yield event.plain_result("你还没有绑定 token，请先使用 /kjq bind <token> 绑定。")
-            return
-        yield event.plain_result("⏳ 正在执行签到，请稍候...")
-        result = await self.kuro_sign.do_sign(user_id, token)
-        yield event.plain_result(result)
+        try:
+            user_id = event.get_sender_id()
+            token = self.kuro_config.get_token(user_id)
+            if not token:
+                yield event.plain_result("你还没有绑定 token，请先使用 /kjq bind <token> 绑定。")
+                return
+            yield event.plain_result("⏳ 正在执行签到，请稍候...")
+            result = await self.kuro_sign.do_sign(user_id, token)
+            yield event.plain_result(result)
+        except Exception as e:
+            logger.error(f"签到命令执行失败: {e}")
+            yield event.plain_result(f"❌ 签到执行出错: {str(e)}\n\n请稍后重试。")
 
     @kjq.command("status")
     async def kjq_status(self, event: AstrMessageEvent):
-        user_id = event.get_sender_id()
-        token = self.kuro_config.get_token(user_id)
-        if not token:
-            yield event.plain_result("你还没有绑定 token，请先使用 /kjq bind <token> 绑定。")
-            return
-        result = await self.kuro_sign.check_status(token)
-        yield event.plain_result(result)
+        try:
+            user_id = event.get_sender_id()
+            token = self.kuro_config.get_token(user_id)
+            if not token:
+                yield event.plain_result("你还没有绑定 token，请先使用 /kjq bind <token> 绑定。")
+                return
+            result = await self.kuro_sign.check_status(token)
+            yield event.plain_result(result)
+        except Exception as e:
+            logger.error(f"查询状态命令执行失败: {e}")
+            yield event.plain_result(f"❌ 查询状态出错: {str(e)}\n\n请稍后重试。")
 
     async def terminate(self):
+        try:
+            await self.kuro_api.close()
+        except Exception as e:
+            logger.error(f"关闭 API 会话失败: {e}")
         logger.info("库街区签到插件已卸载")
