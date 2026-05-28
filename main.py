@@ -14,9 +14,25 @@ class KuroPlugin(Star):
         self.kuro_config = KuroConfig()
         self.kuro_api = KuroAPI()
         self.kuro_sign = KuroSign(self.kuro_config, self.kuro_api)
+        self.cron_job = None
 
     async def initialize(self):
         logger.info("库街区签到插件已加载")
+        try:
+            self.cron_job = self.context.cron_manager.add_cron_job("0 7 * * *", self._auto_sign)
+            logger.info("已注册每日 7:00 自动签到任务")
+        except Exception as e:
+            logger.error(f"注册定时任务失败: {e}")
+
+    async def _auto_sign(self):
+        try:
+            logger.info("开始执行每日自动签到任务")
+            results = await self.kuro_sign.do_sign_all()
+            logger.info(f"自动签到完成，处理了 {len(results)} 个用户")
+            for user_id, result in results.items():
+                logger.debug(f"用户 {user_id} 签到结果: {result}")
+        except Exception as e:
+            logger.error(f"自动签到任务执行失败: {e}")
 
     @filter.command_group("kjq")
     def kjq(self):
@@ -82,6 +98,9 @@ class KuroPlugin(Star):
     async def terminate(self):
         try:
             await self.kuro_api.close()
+            if self.cron_job:
+                self.context.cron_manager.remove_cron_job(self.cron_job)
+                logger.info("已移除自动签到定时任务")
         except Exception as e:
-            logger.error(f"关闭 API 会话失败: {e}")
+            logger.error(f"清理资源失败: {e}")
         logger.info("库街区签到插件已卸载")
