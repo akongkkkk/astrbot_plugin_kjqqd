@@ -78,6 +78,18 @@ class KuroPlugin(Star):
     def kjq(self):
         pass
 
+    @kjq.command()
+    async def kjq_default(self, event: AstrMessageEvent):
+        yield event.plain_result(
+            "☆ 库街区签到助手 ☆\n\n"
+            "可用指令：\n"
+            "/kjq login <手机号> <验证码> - 登录绑定\n"
+            "/kjq bind <token> - 手动绑定\n"
+            "/kjq sign - 手动签到\n"
+            "/kjq status - 查看状态\n"
+            "/kjq help - 详细帮助"
+        )
+
     @kjq.command("help")
     async def kjq_help(self, event: AstrMessageEvent):
         yield event.plain_result(
