@@ -20,7 +20,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/AKONG-z/astrbot_plugin_kjqqd.git
+git clone https://github.com/akongkkkk/astrbot_plugin_kjqqd.git
 
 # 复制插件到 AstrBot 插件目录
 cp -r astrbot_plugin_kjqqd/data/plugins/astrbot_plugin_kjqqd /path/to/astrbot/data/plugins/

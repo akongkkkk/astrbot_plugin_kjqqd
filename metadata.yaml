@@ -4,5 +4,5 @@ desc: 库街区自动签到 # 插件简短描述
 short_desc: 帮你轻松的签到库街区 # 插件市场卡片短描述
 version: v1.0.0 # 插件版本号
 author: AKONG-z # 作者
-repo: https://github.com/AKONG-z/astrbot_plugin_kjqqd # 插件的仓库地址
+repo: https://github.com/akongkkkk/astrbot_plugin_kjqqd # 插件的仓库地址
 config_page: config.html
