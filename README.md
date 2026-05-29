@@ -43,8 +43,8 @@ cp -r astrbot_plugin_kjqqd/data/plugins/astrbot_plugin_kjqqd /path/to/astrbot/da
 
 **推荐方式：验证码登录**
 
-1. 先在手机上登录库街区 APP，然后退出登录
-2. 发送 `/kjq login <手机号> <验证码>` 绑定（机器人会提示你输入）
+1. 先在库街区 APP 或网页上获取验证码（不要登录）
+2. 发送 `/kjq login <手机号> <验证码>` 绑定
 3. 绑定成功后即可使用自动签到功能
 
 > ⚠️ **注意事项**：登录会顶掉手机 APP 的登录状态，建议在手机上重新登录 APP 后再退出。
