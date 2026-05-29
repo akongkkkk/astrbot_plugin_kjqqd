@@ -6,3 +6,4 @@ version: v1.0.0 # 插件版本号
 author: AKONG-z # 作者
 repo: https://github.com/akongkkkk/astrbot_plugin_kjqqd # 插件的仓库地址
 config_page: config.html
+logo_path: logo.png
