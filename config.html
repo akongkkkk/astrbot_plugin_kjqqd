@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库街区签到助手 - 配置</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            font-size: 20px;
+            margin: 0 0 24px 0;
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .form-group .description {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 28px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .3s;
+            border-radius: 28px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .toggle-slider {
+            background-color: #4080ff;
+        }
+        input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+        .time-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            font-family: monospace;
+        }
+        .time-input:focus {
+            outline: none;
+            border-color: #4080ff;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #4080ff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #3070ef;
+        }
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #666;
+            margin-top: 8px;
+        }
+        .btn-secondary:hover {
+            background: #eee;
+        }
+        .status-message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 16px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ 插件配置</h1>
+        
+        <div class="form-group">
+            <label>
+                <span style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>自动签到</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autoSignEnabled">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </span>
+            </label>
+            <div class="description">启用后，插件将在设定时间自动执行签到</div>
+        </div>
+        
+        <div class="form-group">
+            <label>自动签到时间</label>
+            <input type="time" id="autoSignTime" class="time-input" value="07:00" step="900">
+            <div class="description">设置每天自动签到的时间（24小时制）</div>
+        </div>
+        
+        <button class="btn-primary" id="saveBtn">保存配置</button>
+        <button class="btn-secondary" id="resetBtn">恢复默认</button>
+        
+        <div class="status-message" id="statusMessage"></div>
+    </div>
+
+    <script>
+        const autoSignEnabled = document.getElementById('autoSignEnabled');
+        const autoSignTime = document.getElementById('autoSignTime');
+        const saveBtn = document.getElementById('saveBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusMessage = document.getElementById('statusMessage');
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/plugin/astrbot_plugin_kjqqd/config', {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                });
+                const config = await response.json();
+                
+                if (config.auto_sign_enabled !== undefined) {
+                    autoSignEnabled.checked = config.auto_sign_enabled;
+                }
+                if (config.auto_sign_time) {
+                    autoSignTime.value = config.auto_sign_time;
+                }
+            } catch (error) {
+                console.error('加载配置失败:', error);
+            }
+        }
+
+        async function saveConfig() {
+            const config = {
+                auto_sign_enabled: autoSignEnabled.checked,
+                auto_sign_time: autoSignTime.value
+            };
+
+            try {
+                const response = await fetch('/api/plugin/astrbot_plugin_kjqqd/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config),
+                    credentials: 'same-origin'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    statusMessage.className = 'status-message status-success';
+                    statusMessage.textContent = '配置保存成功！';
+                } else {
+                    statusMessage.className = 'status-message status-error';
+                    statusMessage.textContent = result.msg || '保存失败';
+                }
+
+                setTimeout(() => {
+                    statusMessage.className = 'status-message';
+                }, 3000);
+            } catch (error) {
+                statusMessage.className = 'status-message status-error';
+                statusMessage.textContent = '保存失败: ' + error.message;
+                setTimeout(() => {
+                    statusMessage.className = 'status-message';
+                }, 3000);
+            }
+        }
+
+        function resetConfig() {
+            autoSignEnabled.checked = true;
+            autoSignTime.value = '07:00';
+        }
+
+        saveBtn.addEventListener('click', saveConfig);
+        resetBtn.addEventListener('click', resetConfig);
+        
+        document.addEventListener('DOMContentLoaded', loadConfig);
+    </script>
+</body>
+</html>

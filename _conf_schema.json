@@ -1,0 +1,20 @@
+{
+    "auto_sign_enabled": {
+        "type": "bool",
+        "label": "启用自动签到",
+        "default": true,
+        "description": "启用后，插件将在设定时间自动执行签到"
+    },
+    "auto_sign_time": {
+        "type": "string",
+        "label": "自动签到时间",
+        "default": "07:00",
+        "description": "设置每天自动签到的时间（24小时制，格式: HH:MM）"
+    },
+    "kuro_token": {
+        "type": "string",
+        "label": "库街区 Token",
+        "default": "",
+        "description": "库街区账号的登录 Token，可通过抓包或短信登录获取"
+    }
+}

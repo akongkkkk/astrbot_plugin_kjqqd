@@ -6,23 +6,63 @@ from .kuro_config import KuroConfig
 from .kuro_api import KuroAPI
 from .kuro_sign import KuroSign
 
+import json
+import asyncio
+
 
 @register("astrbot_plugin_kjqqd", "AKONG-z", "库街区自动签到插件", "0.1.0")
 class KuroPlugin(Star):
-    def __init__(self, context: Context):
+    def __init__(self, context: Context, config=None):
         super().__init__(context)
+        self.config = config
         self.kuro_config = KuroConfig()
         self.kuro_api = KuroAPI()
         self.kuro_sign = KuroSign(self.kuro_config, self.kuro_api)
         self.cron_job = None
+        self.pending_logins = {}
 
     async def initialize(self):
         logger.info("库街区签到插件已加载")
         try:
-            self.cron_job = self.context.cron_manager.add_cron_job("0 7 * * *", self._auto_sign)
-            logger.info("已注册每日 7:00 自动签到任务")
+            await self._register_cron_job()
+            self._register_web_api()
         except Exception as e:
-            logger.error(f"注册定时任务失败: {e}")
+            logger.error(f"初始化失败: {e}")
+
+    def _register_web_api(self):
+        """注册 Web API 路由"""
+        self.context.register_web_api(
+            '/api/plugin/astrbot_plugin_kjqqd/config',
+            self._handle_config_request,
+            methods=['GET', 'POST'],
+            desc='库街区签到插件配置 API'
+        )
+        logger.info("已注册配置 API 路由")
+
+    async def _register_cron_job(self):
+        """注册定时任务（根据配置决定是否启用）"""
+        if self.config:
+            auto_sign_enabled = self.config.get("auto_sign_enabled", True)
+            sign_time = self.config.get("auto_sign_time", "07:00")
+        else:
+            auto_sign_enabled = True
+            sign_time = "07:00"
+        
+        if auto_sign_enabled:
+            hours, minutes = map(int, sign_time.split(":"))
+            cron_expression = f"{minutes} {hours} * * *"
+            
+            self.cron_job = await self.context.cron_manager.add_basic_job(
+                name="库街区每日自动签到",
+                cron_expression=cron_expression,
+                handler=self._auto_sign,
+                description=f"每天{sign_time}自动执行库街区签到",
+                timezone="Asia/Shanghai",
+                persistent=False,
+            )
+            logger.info(f"已注册每日 {sign_time} 自动签到任务")
+        else:
+            logger.info("自动签到已禁用，跳过定时任务注册")
 
     async def _auto_sign(self):
         try:
@@ -41,14 +81,67 @@ class KuroPlugin(Star):
     @kjq.command("help")
     async def kjq_help(self, event: AstrMessageEvent):
         yield event.plain_result(
-            "☆ 库街区签到助手 ☆\n"
-            "指令列表：\n"
-            "/kjq bind <token> - 绑定库街区 token\n"
-            "/kjq unbind - 解除绑定\n"
+            "☆ 库街区签到助手 ☆\n\n"
+            "📱 登录绑定指令：\n"
+            "/kjq login <手机号> <验证码> - 登录并绑定\n"
+            "/kjq bind <token> - 手动绑定 token\n"
+            "/kjq unbind - 解除绑定\n\n"
+            "🎮 签到指令：\n"
             "/kjq sign - 手动执行签到\n"
-            "/kjq status - 查看今日签到状态\n"
-            "/kjq help - 显示这条帮助信息"
+            "/kjq status - 查看签到状态\n\n"
+            "📖 其他：\n"
+            "/kjq help - 显示帮助信息\n\n"
+            "⚠️ 注意事项：\n"
+            "登录会顶掉手机APP的登录状态，建议使用 /kjq bind 命令绑定。\n"
+            "获取token方法：在手机上用手机号登录库街区APP，通过抓包获取token。"
         )
+
+    @kjq.command("login")
+    async def kjq_login(self, event: AstrMessageEvent, mobile: str = "", code: str = ""):
+        if not mobile or not code:
+            yield event.plain_result(
+                "📱 库街区登录\n\n"
+                "请提供手机号和验证码：\n"
+                "/kjq login <手机号> <验证码>\n\n"
+                "示例：\n"
+                "/kjq login 13800138000 123456\n\n"
+                "⚠️ 注意：登录后会顶掉手机APP的登录状态！\n"
+                "如需使用手机APP，请重新在手机上登录。"
+            )
+            return
+        
+        if not mobile.isdigit() or len(mobile) != 11:
+            yield event.plain_result("❌ 手机号格式错误，请输入11位手机号\n\n示例：/kjq login 13800138000 123456")
+            return
+        
+        if not code.isdigit():
+            yield event.plain_result("❌ 验证码格式错误，验证码应为数字\n\n示例：/kjq login 13800138000 123456")
+            return
+        
+        user_id = event.get_sender_id()
+        
+        try:
+            yield event.plain_result("⏳ 正在验证...")
+            result = await self.kuro_sign.login_with_code(mobile, code)
+            
+            if result.get("success"):
+                token = result.get("token")
+                username = result.get("username", "")
+                user_id_str = result.get("userId", "")
+                self.kuro_config.set_token(user_id, token)
+                logger.info(f"用户 {user_id} ({username}, ID: {user_id_str}) 登录成功")
+                yield event.plain_result(
+                    f"✅ 登录成功！\n\n"
+                    f"👤 用户名：{username}\n"
+                    f"🔢 用户ID：{user_id_str}\n"
+                    f"✅ Token 已自动绑定\n\n"
+                    f"现在可以使用 /kjq sign 进行签到！"
+                )
+            else:
+                yield event.plain_result(f"❌ 登录失败: {result.get('msg')}\n\n请检查手机号和验证码是否正确。")
+        except Exception as e:
+            logger.error(f"登录失败: {e}")
+            yield event.plain_result(f"❌ 登录出错: {str(e)}\n\n请稍后重试。")
 
     @kjq.command("bind")
     async def kjq_bind(self, event: AstrMessageEvent, token: str = ""):
@@ -99,8 +192,53 @@ class KuroPlugin(Star):
         try:
             await self.kuro_api.close()
             if self.cron_job:
-                self.context.cron_manager.remove_cron_job(self.cron_job)
+                await self.context.cron_manager.delete_job(self.cron_job.job_id)
                 logger.info("已移除自动签到定时任务")
         except Exception as e:
             logger.error(f"清理资源失败: {e}")
         logger.info("库街区签到插件已卸载")
+
+    async def _handle_config_request(self, request):
+        """处理配置请求（GET 获取配置，POST 保存配置）"""
+        try:
+            if request.method == 'GET':
+                config = self.kuro_config.get_config()
+                return json.dumps(config), 200, {'Content-Type': 'application/json'}
+            elif request.method == 'POST':
+                body = await request.text()
+                data = json.loads(body)
+                
+                if "kuro_token" in data and data["kuro_token"]:
+                    global_token = data["kuro_token"]
+                    all_users = self.kuro_config.get_all_tokens().keys()
+                    for user_id in all_users:
+                        self.kuro_config.set_token(user_id, global_token)
+                    logger.info(f"已为所有用户设置全局 token")
+                
+                self.kuro_config.update_config(data)
+                
+                if "auto_sign_enabled" in data or "auto_sign_time" in data:
+                    await self._reload_cron_job()
+                
+                return json.dumps({"success": True, "msg": "配置保存成功"}), 200, {'Content-Type': 'application/json'}
+            else:
+                return json.dumps({"success": False, "msg": "不支持的请求方法"}), 405, {'Content-Type': 'application/json'}
+        except Exception as e:
+            logger.error(f"处理配置请求失败: {e}")
+            return json.dumps({"success": False, "msg": str(e)}), 500, {'Content-Type': 'application/json'}
+
+    async def _reload_cron_job(self):
+        """重新加载定时任务（配置变更时调用）"""
+        try:
+            if self.cron_job:
+                await self.context.cron_manager.delete_job(self.cron_job.job_id)
+                self.cron_job = None
+            
+            await self._register_cron_job()
+            logger.info("定时任务已根据配置重新加载")
+        except Exception as e:
+            logger.error(f"重新加载定时任务失败: {e}")
+
+    def on_config_update(self):
+        """配置更新回调"""
+        asyncio.create_task(self._reload_cron_job())

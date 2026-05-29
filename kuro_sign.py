@@ -91,6 +91,12 @@ class KuroSign:
                                 )
                                 if sign_result.get("code") == 200 and sign_result.get("success"):
                                     result.append(f"🎮 {role_name}: ✅ 签到成功")
+                                    
+                                    awards = sign_result.get("data", {}).get("awards", [])
+                                    if awards:
+                                        item_names = [award.get("name", award.get("awardName", "?")) for award in awards]
+                                        result.append(f"   🎁 获得: {', '.join(item_names)}")
+                                    
                                     success_count += 1
                                 else:
                                     msg = sign_result.get("msg", "未知错误")
@@ -101,7 +107,7 @@ class KuroSign:
                                         result.append(f"🎮 {role_name}: ❌ 失败 - {msg}")
                             except Exception as e:
                                 logger.error(f"角色 {role_name} 签到异常: {e}")
-                                result.append(f"🎮 {role_name}: ❌ 异常 - {str(e)}")
+                                result.append(f"🎮 {role_name}: ❌ 异常: {str(e)}")
             except Exception as e:
                 logger.error(f"获取游戏角色列表异常: {e}")
                 result.append(f"🎮 获取角色列表异常: {str(e)}")
@@ -127,3 +133,74 @@ class KuroSign:
                 results[user_id] = f"❌ 签到异常: {str(e)}"
 
         return results
+
+    async def send_verification_code(self, mobile: str) -> Dict[str, Any]:
+        """发送验证码到手机号"""
+        try:
+            result = await self.api.send_sms_code(mobile)
+            
+            if result.get("code") == 200:
+                data = result.get("data", {})
+                gee_test = data.get("geeTest", True)
+                
+                if gee_test:
+                    return {
+                        "success": False,
+                        "msg": "需要滑块验证，请使用其他方式登录"
+                    }
+                
+                return {
+                    "success": True,
+                    "msg": "验证码发送成功"
+                }
+            else:
+                return {
+                    "success": False,
+                    "msg": result.get("msg", "发送验证码失败")
+                }
+        except Exception as e:
+            logger.error(f"发送验证码异常: {e}")
+            return {
+                "success": False,
+                "msg": f"发送验证码失败: {str(e)}"
+            }
+
+    async def login_with_code(self, mobile: str, code: str) -> Dict[str, Any]:
+        """使用验证码登录"""
+        try:
+            result = await self.api.sms_login(mobile, code)
+            
+            if result.get("code") == 200:
+                data = result.get("data", {})
+                token = data.get("token")
+                
+                if not token:
+                    return {
+                        "success": False,
+                        "msg": "登录成功但未获取到 token"
+                    }
+                
+                return {
+                    "success": True,
+                    "msg": "登录成功",
+                    "token": token,
+                    "username": data.get("userName", ""),
+                    "userId": data.get("userId", "")
+                }
+            else:
+                error_msg = result.get("msg", "登录失败")
+                if "验证码错误" in error_msg or "130" in str(result.get("code")):
+                    return {
+                        "success": False,
+                        "msg": "验证码错误"
+                    }
+                return {
+                    "success": False,
+                    "msg": error_msg
+                }
+        except Exception as e:
+            logger.error(f"验证码登录异常: {e}")
+            return {
+                "success": False,
+                "msg": f"登录失败: {str(e)}"
+            }

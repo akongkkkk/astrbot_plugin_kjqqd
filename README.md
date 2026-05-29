@@ -32,17 +32,22 @@ cp -r astrbot_plugin_kjqqd/data/plugins/astrbot_plugin_kjqqd /path/to/astrbot/da
 
 | 指令 | 说明 | 示例 |
 |------|------|------|
-| `/kjq bind <token>` | 绑定库街区 token | `/kjq bind abc123xyz` |
+| `/kjq login <手机号> <验证码>` | 登录并绑定（会顶掉APP登录） | `/kjq login 13800138000 123456` |
+| `/kjq bind <token>` | 手动绑定库街区 token（推荐） | `/kjq bind abc123xyz` |
 | `/kjq unbind` | 解除绑定 | `/kjq unbind` |
-| `/kjq sign` | 手动执行签到 | `/kjq sign` |
+| `/kjq sign` | 手动执行签到（显示获得道具） | `/kjq sign` |
 | `/kjq status` | 查看 token 状态 | `/kjq status` |
 | `/kjq help` | 显示帮助信息 | `/kjq help` |
 
 ### 获取 Token
 
-1. 登录库街区 APP
+**推荐方式：手动绑定**
+
+1. 在手机上用手机号登录库街区 APP
 2. 通过抓包工具获取请求头中的 `token` 字段
 3. 使用 `/kjq bind <token>` 绑定
+
+> ⚠️ **注意事项**：使用 `/kjq login` 命令会顶掉手机 APP 的登录状态，建议使用 `/kjq bind` 命令手动绑定。
 
 ## 📁 项目结构
 
