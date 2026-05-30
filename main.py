@@ -8,6 +8,7 @@ from .kuro_sign import KuroSign
 
 import json
 import asyncio
+import datetime
 
 
 @register("astrbot_plugin_kjqqd", "AKONG-z", "库街区自动签到插件", "0.1.0")
@@ -18,14 +19,16 @@ class KuroPlugin(Star):
         self.kuro_config = KuroConfig()
         self.kuro_api = KuroAPI()
         self.kuro_sign = KuroSign(self.kuro_config, self.kuro_api)
-        self.cron_job = None
+        self._auto_sign_task = None
         self.pending_logins = {}
 
     async def initialize(self):
         logger.info("库街区签到插件已加载")
         try:
-            await self._register_cron_job()
             self._register_web_api()
+            if self._is_auto_sign_enabled():
+                self._auto_sign_task = asyncio.create_task(self._auto_sign_task_loop())
+                await self._check_and_run_today()
         except Exception as e:
             logger.error(f"初始化失败: {e}")
 
@@ -39,36 +42,76 @@ class KuroPlugin(Star):
         )
         logger.info("已注册配置 API 路由")
 
-    async def _register_cron_job(self):
-        """注册定时任务（根据配置决定是否启用）"""
+    def _is_auto_sign_enabled(self):
+        """检查自动签到是否启用"""
         if self.config:
-            auto_sign_enabled = self.config.get("auto_sign_enabled", True)
-            sign_time = self.config.get("auto_sign_time", "07:00")
-        else:
-            auto_sign_enabled = True
-            sign_time = "07:00"
-        
-        if auto_sign_enabled:
-            hours, minutes = map(int, sign_time.split(":"))
-            cron_expression = f"{minutes} {hours} * * *"
-            
-            self.cron_job = await self.context.cron_manager.add_basic_job(
-                name="库街区每日自动签到",
-                cron_expression=cron_expression,
-                handler=self._auto_sign,
-                description=f"每天{sign_time}自动执行库街区签到",
-                timezone="Asia/Shanghai",
-                persistent=False,
-            )
-            logger.info(f"已注册每日 {sign_time} 自动签到任务")
-        else:
-            logger.info("自动签到已禁用，跳过定时任务注册")
+            return self.config.get("auto_sign_enabled", True)
+        return True
 
-    async def _auto_sign(self):
+    def _get_sign_time(self):
+        """获取签到时间"""
+        if self.config:
+            return self.config.get("auto_sign_time", "07:00")
+        return "07:00"
+
+    async def _auto_sign_task_loop(self):
+        """自动签到后台任务循环"""
+        while True:
+            try:
+                next_time = self._calculate_next_sign_time()
+                wait_seconds = (next_time - datetime.datetime.now()).total_seconds()
+                
+                if wait_seconds > 0:
+                    logger.info(f"下次签到时间: {next_time.strftime('%Y-%m-%d %H:%M:%S')}，等待 {wait_seconds:.0f} 秒")
+                    await asyncio.sleep(wait_seconds)
+                
+                await self._do_auto_sign()
+                await asyncio.sleep(60)
+                
+            except asyncio.CancelledError:
+                logger.info("自动签到任务已取消")
+                break
+            except Exception as e:
+                logger.error(f"自动签到任务异常: {e}")
+                await asyncio.sleep(60)
+
+    def _calculate_next_sign_time(self):
+        """计算下次签到时间"""
+        sign_time = self._get_sign_time()
+        hours, minutes = map(int, sign_time.split(":"))
+        
+        now = datetime.datetime.now()
+        next_time = now.replace(hour=hours, minute=minutes, second=0, microsecond=0)
+        
+        if next_time <= now:
+            next_time += datetime.timedelta(days=1)
+        
+        return next_time
+
+    async def _check_and_run_today(self):
+        """启动时检查今天是否已签到，未签到则立即执行"""
+        try:
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            last_sign_date = self.kuro_config.get_last_sign_date()
+            
+            if last_sign_date != today:
+                logger.info(f"今天 ({today}) 还未签到，立即执行签到")
+                await self._do_auto_sign()
+            else:
+                logger.info(f"今天 ({today}) 已签过到，跳过")
+        except Exception as e:
+            logger.error(f"启动时签到检查失败: {e}")
+
+    async def _do_auto_sign(self):
+        """执行自动签到"""
         try:
             logger.info("开始执行每日自动签到任务")
             results = await self.kuro_sign.do_sign_all()
             logger.info(f"自动签到完成，处理了 {len(results)} 个用户")
+            
+            today = datetime.datetime.now().strftime("%Y-%m-%d")
+            self.kuro_config.set_last_sign_date(today)
+            
             for user_id, result in results.items():
                 logger.debug(f"用户 {user_id} 签到结果: {result}")
         except Exception as e:
@@ -203,9 +246,13 @@ class KuroPlugin(Star):
     async def terminate(self):
         try:
             await self.kuro_api.close()
-            if self.cron_job:
-                await self.context.cron_manager.delete_job(self.cron_job.job_id)
-                logger.info("已移除自动签到定时任务")
+            if self._auto_sign_task:
+                self._auto_sign_task.cancel()
+                try:
+                    await self._auto_sign_task
+                except asyncio.CancelledError:
+                    pass
+            logger.info("已移除自动签到定时任务")
         except Exception as e:
             logger.error(f"清理资源失败: {e}")
         logger.info("库街区签到插件已卸载")
@@ -230,7 +277,11 @@ class KuroPlugin(Star):
                 self.kuro_config.update_config(data)
                 
                 if "auto_sign_enabled" in data or "auto_sign_time" in data:
-                    await self._reload_cron_job()
+                    if data.get("auto_sign_enabled") and not self._auto_sign_task:
+                        self._auto_sign_task = asyncio.create_task(self._auto_sign_task_loop())
+                    elif not data.get("auto_sign_enabled") and self._auto_sign_task:
+                        self._auto_sign_task.cancel()
+                        self._auto_sign_task = None
                 
                 return json.dumps({"success": True, "msg": "配置保存成功"}), 200, {'Content-Type': 'application/json'}
             else:
@@ -238,19 +289,3 @@ class KuroPlugin(Star):
         except Exception as e:
             logger.error(f"处理配置请求失败: {e}")
             return json.dumps({"success": False, "msg": str(e)}), 500, {'Content-Type': 'application/json'}
-
-    async def _reload_cron_job(self):
-        """重新加载定时任务（配置变更时调用）"""
-        try:
-            if self.cron_job:
-                await self.context.cron_manager.delete_job(self.cron_job.job_id)
-                self.cron_job = None
-            
-            await self._register_cron_job()
-            logger.info("定时任务已根据配置重新加载")
-        except Exception as e:
-            logger.error(f"重新加载定时任务失败: {e}")
-
-    def on_config_update(self):
-        """配置更新回调"""
-        asyncio.create_task(self._reload_cron_job())

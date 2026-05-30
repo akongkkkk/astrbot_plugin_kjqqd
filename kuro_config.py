@@ -118,3 +118,10 @@ class KuroConfig:
             self.set_auto_sign_enabled(config["auto_sign_enabled"])
         if "auto_sign_time" in config:
             self.set_auto_sign_time(config["auto_sign_time"])
+
+    def get_last_sign_date(self) -> str:
+        return self._config.get("last_sign_date", "")
+
+    def set_last_sign_date(self, date_str: str):
+        self._config["last_sign_date"] = date_str
+        self._save_config()
