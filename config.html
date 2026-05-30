@@ -160,6 +160,12 @@
         </div>
         
         <div class="form-group">
+            <label>签到间隔（秒）</label>
+            <input type="number" id="autoSignInterval" class="time-input" value="3" min="1" max="60">
+            <div class="description">多账号签到时每个账号之间的间隔时间</div>
+        </div>
+        
+        <div class="form-group">
             <label>通知群组ID</label>
             <input type="text" id="notifyGroup" class="time-input" placeholder="留空则不发送通知">
             <div class="description">签到完成后发送通知的群组ID（留空则不发送通知）</div>
@@ -174,6 +180,7 @@
     <script>
         const autoSignEnabled = document.getElementById('autoSignEnabled');
         const autoSignTime = document.getElementById('autoSignTime');
+        const autoSignInterval = document.getElementById('autoSignInterval');
         const notifyGroup = document.getElementById('notifyGroup');
         const saveBtn = document.getElementById('saveBtn');
         const resetBtn = document.getElementById('resetBtn');
@@ -193,6 +200,9 @@
                 if (config.auto_sign_time) {
                     autoSignTime.value = config.auto_sign_time;
                 }
+                if (config.auto_sign_interval !== undefined) {
+                    autoSignInterval.value = config.auto_sign_interval;
+                }
                 if (config.notify_group !== undefined) {
                     notifyGroup.value = config.notify_group;
                 }
@@ -205,6 +215,7 @@
             const config = {
                 auto_sign_enabled: autoSignEnabled.checked,
                 auto_sign_time: autoSignTime.value,
+                auto_sign_interval: parseInt(autoSignInterval.value) || 3,
                 notify_group: notifyGroup.value
             };
 
@@ -242,6 +253,7 @@
         function resetConfig() {
             autoSignEnabled.checked = true;
             autoSignTime.value = '07:00';
+            autoSignInterval.value = '3';
             notifyGroup.value = '';
         }
 

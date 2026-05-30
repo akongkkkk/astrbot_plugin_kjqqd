@@ -74,6 +74,7 @@ class KuroConfig:
         return {
             "auto_sign_enabled": True,
             "auto_sign_time": "07:00",
+            "auto_sign_interval": 3,
             "timezone": "Asia/Shanghai",
             "notify_group": ""
         }
@@ -119,6 +120,8 @@ class KuroConfig:
             self.set_auto_sign_enabled(config["auto_sign_enabled"])
         if "auto_sign_time" in config:
             self.set_auto_sign_time(config["auto_sign_time"])
+        if "auto_sign_interval" in config:
+            self.set_auto_sign_interval(config["auto_sign_interval"])
         if "notify_group" in config:
             self.set_notify_group(config["notify_group"])
 
@@ -128,6 +131,17 @@ class KuroConfig:
     def set_last_sign_date(self, date_str: str):
         self._config["last_sign_date"] = date_str
         self._save_config()
+
+    def get_auto_sign_interval(self) -> int:
+        return self._config.get("auto_sign_interval", 3)
+
+    def set_auto_sign_interval(self, interval: int):
+        if 1 <= interval <= 60:
+            self._config["auto_sign_interval"] = interval
+            self._save_config()
+            logger.debug(f"签到间隔已设置为: {interval} 秒")
+        else:
+            logger.error(f"无效的签到间隔: {interval}，应在 1-60 之间")
 
     def get_notify_group(self) -> str:
         return self._config.get("notify_group", "")

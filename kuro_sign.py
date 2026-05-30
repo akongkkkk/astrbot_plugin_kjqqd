@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 from .kuro_config import KuroConfig
 from .kuro_api import KuroAPI
 from astrbot.api import logger
+import asyncio
 
 
 class KuroSign:
@@ -123,14 +124,18 @@ class KuroSign:
         """为所有已绑定用户执行签到（用于定时任务）"""
         tokens = self.config.get_all_tokens()
         results = {}
+        interval = self.config.get_auto_sign_interval()
 
-        for user_id, token in tokens.items():
+        for i, (user_id, token) in enumerate(tokens.items()):
             try:
                 result = await self.do_sign(user_id, token)
                 results[user_id] = result
             except Exception as e:
                 logger.error(f"用户 {user_id} 签到失败: {e}")
                 results[user_id] = f"❌ 签到异常: {str(e)}"
+            
+            if i < len(tokens) - 1 and interval > 0:
+                await asyncio.sleep(interval)
 
         return results
 

@@ -11,6 +11,12 @@
         "default": "07:00",
         "description": "设置每天自动签到的时间（24小时制，格式: HH:MM）"
     },
+    "auto_sign_interval": {
+        "type": "int",
+        "label": "签到间隔（秒）",
+        "default": 3,
+        "description": "多账号签到时每个账号之间的间隔时间（秒）"
+    },
     "notify_group": {
         "type": "string",
         "label": "通知群组ID",
