@@ -11,6 +11,12 @@
         "default": "07:00",
         "description": "设置每天自动签到的时间（24小时制，格式: HH:MM）"
     },
+    "notify_group": {
+        "type": "string",
+        "label": "通知群组ID",
+        "default": "",
+        "description": "签到完成后发送通知的群组ID（留空则不发送通知）"
+    },
     "kuro_token": {
         "type": "string",
         "label": "库街区 Token",

@@ -119,6 +119,8 @@ class KuroConfig:
             self.set_auto_sign_enabled(config["auto_sign_enabled"])
         if "auto_sign_time" in config:
             self.set_auto_sign_time(config["auto_sign_time"])
+        if "notify_group" in config:
+            self.set_notify_group(config["notify_group"])
 
     def get_last_sign_date(self) -> str:
         return self._config.get("last_sign_date", "")
