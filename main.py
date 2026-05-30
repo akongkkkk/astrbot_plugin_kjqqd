@@ -1,6 +1,8 @@
 from astrbot.api.event import filter, AstrMessageEvent
-from astrbot.api.star import Context, Star, register
+from astrbot.api.star import Context, Star, register, StarTools
 from astrbot.api import logger
+from astrbot.core.message.components import Plain
+from astrbot.core.message.message_event_result import MessageChain
 
 from .kuro_config import KuroConfig
 from .kuro_api import KuroAPI
@@ -114,8 +116,41 @@ class KuroPlugin(Star):
             
             for user_id, result in results.items():
                 logger.debug(f"用户 {user_id} 签到结果: {result}")
+            
+            await self._send_sign_notification(results)
         except Exception as e:
             logger.error(f"自动签到任务执行失败: {e}")
+
+    async def _send_sign_notification(self, results: dict):
+        """发送签到通知到配置的群组"""
+        try:
+            notify_group = self.kuro_config.get_notify_group()
+            if not notify_group:
+                return
+            
+            success_count = sum(1 for r in results.values() if r.get("success"))
+            fail_count = len(results) - success_count
+            
+            message = f"【库街区自动签到通知】\n"
+            message += f"时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+            message += f"成功: {success_count} 个用户\n"
+            message += f"失败: {fail_count} 个用户\n"
+            
+            for user_id, result in results.items():
+                status = "✅" if result.get("success") else "❌"
+                msg = result.get("message", "未知")
+                message += f"\n{status} 用户 {user_id}: {msg}"
+            
+            message_chain = MessageChain([Plain(message)])
+            await StarTools.send_message_by_id(
+                type="GroupMessage",
+                id=notify_group,
+                message_chain=message_chain,
+                platform="aiocqhttp"
+            )
+            logger.info(f"签到通知已发送到群组 {notify_group}")
+        except Exception as e:
+            logger.error(f"发送签到通知失败: {e}")
 
     @filter.command_group("kjq")
     def kjq(self):

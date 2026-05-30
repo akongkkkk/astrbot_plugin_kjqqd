@@ -74,7 +74,8 @@ class KuroConfig:
         return {
             "auto_sign_enabled": True,
             "auto_sign_time": "07:00",
-            "timezone": "Asia/Shanghai"
+            "timezone": "Asia/Shanghai",
+            "notify_group": ""
         }
 
     def _save_config(self):
@@ -125,3 +126,11 @@ class KuroConfig:
     def set_last_sign_date(self, date_str: str):
         self._config["last_sign_date"] = date_str
         self._save_config()
+
+    def get_notify_group(self) -> str:
+        return self._config.get("notify_group", "")
+
+    def set_notify_group(self, group_id: str):
+        self._config["notify_group"] = group_id
+        self._save_config()
+        logger.debug(f"通知群组已设置为: {group_id}")
